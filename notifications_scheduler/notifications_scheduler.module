@@ -32,7 +32,7 @@ function notifications_scheduler_notifications($op) {
         'class' => 'Notifications_Scheduler_Latest_Posts',
         'template' => 'notifications_scheduler-node_list',
         // Type of trigger that throws these events
-        'trigger' => 'job_scheduler',
+        'triggers' => array('job_scheduler' => array('any')),
         'actions' => array('notifications_scheduler_latest_posts_action'),
       );
       return $types;

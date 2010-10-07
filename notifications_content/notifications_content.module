@@ -287,6 +287,7 @@ function notifications_content_notifications($op) {
         'title' => t('Node post'),
         'class' => 'Notifications_Node_Post_Event',
         'template' => 'notifications-event-node-insert',
+        'triggers' => array('node' => array('node_insert', 'node_update')),
         'actions' => array('notifications_content_node_insert_action', 'notifications_content_node_update_action'),
       );
       $types['node-update'] = array(
@@ -295,6 +296,7 @@ function notifications_content_notifications($op) {
         'class' => 'Notifications_Node_Update_Event',
         'title' => t('Node update'),
         'template' => 'notifications-event-node-update',
+        'triggers' => array('node' => array('node_update')),
         'actions' => array('notifications_content_node_update_action'),
       );      
       $types['node-comment'] = array(
@@ -303,6 +305,7 @@ function notifications_content_notifications($op) {
         'class' => 'Notifications_Node_Comment_Event',
         'title' => t('Node comment'),
         'template' => 'notifications-event-node-comment',
+        'triggers' => array('comment' => array('comment_insert', 'comment_update')),
         'actions' => array('notifications_content_comment_action'),
       );
       return $types;
@@ -351,21 +354,21 @@ function notifications_content_action_info() {
       'type' => 'notifications',
       'label' => t('Send content notifications'),
       'configurable' => FALSE,
-      //'behavior' => array('changes_property'),
+      'behavior' => array('sends_notification'),
       'triggers' => array('node_insert'),
     ),
     'notifications_content_node_update_action' => array(
       'type' => 'notifications',
       'label' => t('Send content notifications'),
       'configurable' => FALSE,
-      //'behavior' => array('changes_property'),
+      'behavior' => array('sends_notification'),
       'triggers' => array('node_update'),
     ),
     'notifications_content_comment_action' => array(
       'type' => 'notifications',
       'label' => t('Send comment notifications'),
       'configurable' => FALSE,
-      //'behavior' => array('changes_property'),
+      'behavior' => array('sends_notification'),
       'triggers' => array('comment_insert', 'comment_update'),
     ),
   );

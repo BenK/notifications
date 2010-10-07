@@ -275,25 +275,30 @@ function notifications_admin_event_triggers($type) {
   static $action_info, $trigger_info;
   if (!isset($action_info)) {
     $action_info = module_invoke_all('action_info');
-    // We need to index trigger info by actual trigger key
-    foreach (module_invoke_all('trigger_info') as $trigger_type => $type_info) {
-      foreach ($type_info as $key => $key_info) {
-        $trigger_info[$key] = $key_info;
-      }
-    }
+    $trigger_info = module_invoke_all('trigger_info');
   }
-  $event_triggers = array();
-  $event_actions = notifications_event_type($type, 'actions', array());
-  foreach ($event_actions as $action) {
-    foreach ($action_info[$action]['triggers'] as $trigger) {
-      foreach (trigger_get_assigned_actions($trigger) as $trigger_action) {
-        if (in_array($trigger_action['aid'], $event_actions)) {
-          $event_triggers[$trigger] = $trigger_info[$trigger]['label'];
+  $result = array();
+  if ($event_triggers = notifications_event_type($type, 'triggers', array())) {
+    $event_actions = notifications_event_type($type, 'actions', array());
+    foreach ($event_triggers as $trigger_type => $hooks) {
+      if (in_array('any', $hooks)) {
+        $hooks = array_keys($trigger_info[$trigger_type]);
+      }
+      foreach ($hooks as $hook) {
+        foreach (trigger_get_assigned_actions($hook) as $trigger_action) {
+          $aid = $trigger_action['aid'];
+          if (is_numeric($aid)) {
+            $aid = db_query('SELECT callback FROM {actions} WHERE aid = :aid', array(':aid' => $aid))->fetchField();
+          }
+          if ($aid && in_array($aid, $event_actions)) {
+            $result[$hook] = $trigger_info[$trigger_type][$hook]['label'];
+          }
         }
       }
+      
     }
   }
-  return $event_triggers;
+  return $result;
 }
 /**
  * Build event tree
