@@ -18,3 +18,72 @@
  * Development Seed, http://www.developmentseed.org, 2007 
  *
  */
+
+/**
+ * Implementation of hook_action_info()
+ */
+function notifications_scheduler_action_info() {
+  return array(
+    'notifications_scheduler_latest_action' => array(
+      'type' => 'job_scheduler',
+      'label' => t('Scheduled notification: @name', array('@name' =>  t('Latest posts'))),
+      'configurable' => TRUE,
+      'behavior' => array('sends_notification'),
+      'triggers' => array('any'),
+    ),
+  );
+}
+
+/**
+ * Action: Configuration form
+ */
+function notifications_scheduler_latest_action_form($context) {
+  $form['type'] = array(
+    '#title' => t('Content type'),
+    '#type' => 'select',
+    '#options' => array('' => t('All types')) + node_type_get_names(),
+    '#default_value' => isset($context['type']) ? $context['type'] : '',
+  );
+  // Terms is an array of tids, map to names for autocomplete field
+  if (!empty($context['terms'])) {
+    $terms = implode(', ', array_map('taxonomy_term_title', taxonomy_term_load_multiple($context['terms'])));
+  }
+  else {
+    $terms = '';
+  }
+  $form['terms'] = array(
+    '#title' => t('Taxonomy terms'),
+    '#type' => 'textfield',
+    '#default_value' => $terms,
+    '#autocomplete_path' => 'notifications_tags/autocomplete/multiple',
+    '#element_validate' => array('notifications_tags_autocomplete_validate'),
+  );
+  $form['number'] = array(
+    '#title' => t('Number of items to send'),
+    '#type' => 'select',
+    '#default_value' => isset($context['number']) ? $context['number'] : variable_get('default_nodes_main', 10),
+    '#options' => drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30)),
+  );
+  return $form;
+}
+
+/**
+ * Action: Configuration form submit
+ */
+function notifications_scheduler_latest_action_submit($form, &$form_state) {
+  // Process the HTML form to store configuration. The keyed array that
+  // we return will be serialized to the database.
+  $params = array(
+    'type' => $form_state['values']['type'],
+    'terms'   => $form_state['values']['terms'],
+    'number'   => $form_state['values']['number'],
+  );
+  return $params;
+}
+
+/**
+ * Action callback
+ */
+function notifications_scheduler_latest_action($object, $context, $a1, $a2) {
+  watchdog('notifications_scheduler', 'Action !object', array('!object' => print_r($object, TRUE)));
+}

@@ -68,7 +68,7 @@ class Notifications_Taxonomy_Term_Field extends Notifications_Field_Autocomplete
    * Get autocomplete path
    */
   function autocomplete_path() {
-    return 'taxonomy/autocomplete';
+    return 'notifications_tags/autocomplete/simple';
   }
 
   /**
