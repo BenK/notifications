@@ -16,7 +16,8 @@ class Notifications_Template {
   // Store multiple object types
   protected $objects = array();
   protected $events = array();
-  
+  // Generic content for other templates (node lists, etc)
+  protected $content;
   protected $subscriptions = array();
   // Options for string replacement
   protected $options;
@@ -28,6 +29,7 @@ class Notifications_Template {
    */
   public function __construct($event = NULL) {
     if ($event) {
+      $this->content = $event->get_content();
       $this->objects = $event->get_objects();
       $this->objects['event'] = $event;
     }
@@ -74,6 +76,12 @@ class Notifications_Template {
       $objects += $this->parent->get_objects();
     }
     return $objects;
+  }
+  /**
+   * Get generic content
+   */
+  function get_content() {
+    return isset($this->content) ? $this->content : NULL;
   }
   /**
    * Get objects as Drupal objects (Removing Notifications object wrapper)

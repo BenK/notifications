@@ -296,7 +296,7 @@ class Notifications_Node extends Notifications_Drupal_Object {
    */
   function user_access($account) {
     if ($node = $this->get_object()) {
-      node_access('view', $node, $account);
+      return node_access('view', $node, $account);
     }
   }
 }

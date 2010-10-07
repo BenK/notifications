@@ -6,5 +6,5 @@ version = VERSION
 core = 7.x
 dependencies[] = notifications
 dependencies[] = job_scheduler_trigger
-
+files[] = notifications_scheduler.inc
 

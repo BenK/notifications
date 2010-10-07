@@ -36,6 +36,7 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
         // Always queue for later processing
         //$this->queue();
         //return TRUE;
+        // Better for testing
         return parent::trigger();
       }
     }
@@ -45,16 +46,11 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
   /**
    * Prepare event objects from context parameters
    */
-  public abstract function prepare_context();
+  protected abstract function prepare_context();
   /**
    * Load content, to be implemented by subclasses
    */
-  public abstract function load_content();
-
-  /**
-   * Build template, to be implemented by subsclasses
-   */
-  public abstract function build_template();
+  protected abstract function load_content();
 
   /**
    * Action info to return on hook_action_info()
@@ -86,7 +82,7 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
   public function set_action($object, $context) {
     $this->action_object = $object;
     $this->action_context = $context;
-    $this->set_fields();
+    $this->prepare_context();
     return $this;
   }
   /**
@@ -157,8 +153,12 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
     }
     return $result;
   }
-
-
+  /**
+   * Check user access to event's objects. Default for mass mailing events is TRUE
+   */
+  public function user_access($account, $op = 'view') {
+    return TRUE;
+  }
 }
 
 
@@ -166,6 +166,12 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
  * Test this schedule class, send latest created nodes
  */
 class Notifications_Scheduler_Latest_Posts extends Notifications_Scheduler_Event {
+  /**
+   * Whether the action is configurable. Forms handling must be provided by the module
+   */
+  public function is_configurable() {
+    return TRUE;
+  }
   /**
    * Set action parameters, get field mapping from context
    */
@@ -175,45 +181,36 @@ class Notifications_Scheduler_Latest_Posts extends Notifications_Scheduler_Event
     }
     // Some hack, try a field with array value ??
     if ($tid = $this->get_action_context('term')) {
-      $this->add_object('taxonomy_term', $term);
+      $this->add_object('taxonomy_term', $tid);
     }
   } 
   /**
-   * Load latest nodes created. It doesn't check node access
+   * Load latest nodes created and published. It doesn't check node access
    */
   protected function load_content() {
-    $select = db_select('node', 'n')
+    $query = db_select('node', 'n')
       ->fields('n', array('nid', 'created'))
+            ->orderBy('created', 'DESC')
       ->condition('status', 1)
-      ->orderBy('created', 'DESC');
-      ->limit($this->get_action_context('number', variable_get('default_nodes_main', 10));
-    if ($type = $this->get_action_context('type')) {
-      $select->condition('type', $type);
+      ->extend('PagerDefault')
+      ->limit($this->get_action_context('node_number', variable_get('default_nodes_main', 10)));
+    if ($type = $this->get_action_context('node_type')) {
+      $query->condition('type', $type);
     }
-    if ($tid = $this->get_action_context('term')) {
+    if ($tid = $this->get_action_context('taxonomy_term')) {
       $query->join('taxonomy_index', 't', 'n.nid = t.nid');
       $query->condition('t.tid', $tid);      
     }
-    $nids = $select->execute()->fetchCol();
-    return node_load_multiple($nids);
+    if ($nids = $query->execute()->fetchCol()) {
+      return node_load_multiple($nids);
+    }
   }
   /**
-   * Build message template. It doesn't check node access
+   * Check user access to event's objects.
    */
-  protected function build_template() {
-    $template = $this->get_template('message');
-    $template->add_string('subject', $this->get_subject());
-    $body = $template->add_template('body', $this->get_template('body'));
-    $body->add_item('header', $this->get_header());
-    $content = $body->add_element('content', $this->get_template('content'));
-    $body->add_item('footer', $this->get_footer());
-    // All nodes will be stored, the template will possibly render them with node_view_multiple()
-    foreach ($this->content as $nid => $node) {
-      $content->add_item($nid, $node);
-    }
-    return $template;
+  public function user_access($account, $op = 'view') {
+    return user_access('access content', $account);
   }
-  
 }
 
 /**
@@ -231,7 +228,7 @@ class Notifications_Scheduler_Node_List extends Notifications_Template {
       case 'content':
         // @todo There should be a way to format this as an item list
         $list = array('#type' => 'messaging_text');
-        foreach ($this->event->get_content() as $node) {
+        foreach ($this->get_content() as $node) {
           $list[$node->nid] = array(
             '#type' => 'link',
             '#title' => $node->title,

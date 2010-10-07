@@ -91,13 +91,13 @@ class Notifications_Event extends Notifications_Entity {
    * Get object title
    */
   public function get_title() {
-    return t('Event');
+    return $this->get_type('title', t('Event'));
   }
   /**
    * Get object name
    */
   public function get_name() {
-    return t('Event');
+    return $this->get_type('name', t('Event'));
   }
   /**
    * Get generic content
@@ -376,32 +376,6 @@ class Notifications_Event extends Notifications_Entity {
   }
 
   /**
-   * Track events and keep them updated
-   * 
-   * It will delete events when objects are not available anymore or when event counter reaches 0
-   * 
-   * Replaces notifications_event_tracker()
-   */
-
-  /**
-   * Add event to be tracked
-   */
-  public function track() {
-    Notifications_Event_Tracker::track($this);
-  }
-  
-  /**
-   * Load and add to the tracker
-   */ 
-  public static function track_load($eid) {
-    if (($event = self::load($eid)) && $event->load_objects() && empty($event->delete)) {
-      $event->track_count();
-      $event->track();
-      return $event;
-    }    
-  }
-
-  /**
    * Build query for subscriptions that match this event type
    */
   function query_subscriptions() {
@@ -456,14 +430,6 @@ class Notifications_Event extends Notifications_Entity {
   function invoke_all($op) {
     return module_invoke_all('notifications_event', $op, $this);
   }
-  /**
-   * Process events stored for immediate sending
-   * 
-   * This will be called from notifications_exit() when the event API is loaded
-   */
-  public static function process_immediate() {
-    return Notifications_Event_Tracker::process_immediate();
-  }
   
   /**
    * Send message to all subscriptions
@@ -475,7 +441,12 @@ class Notifications_Event extends Notifications_Entity {
     ->fetchCol();
     if ($sids) {
       $subscriptions = entity_load('notifications_subscription', $sids);
-      return $this->send_list($subscriptions);
+      $success = $this->send_list($subscriptions);
+      watchdog('notifications', 'Sending event @event to @count subscribers, sent @success messages.', array('@event' => $this->get_title(), '@count' => count($sids), '@success' => $success));     
+      return $success;
+    }
+    else{
+      return 0;
     }
   }
   /**
@@ -512,44 +483,5 @@ class Notifications_Event extends Notifications_Entity {
     $success = count(array_filter($results));
     watchdog('notifications', 'Sent @count notifications: @success success, @errors errors', array('@count' => $count, '@success' => $success, '@errors' => $count - $success));
     return $success;
-  }
-}
-
-/**
- * Event tracker
- */
-class Notifications_Event_Tracker {
-  // Track events for queue processing
-  protected static $_event_tracker;
-
-  /**
-   * Add event to be tracked
-   */
-  public function track($event) {
-    self::$_event_tracker[$event->eid] = $event;
-  }
-
-  // Delete event and all related rows
-  public static function delete($event) {
-    unset(self::$_event_tracker[$event->eid]);
-    $event->delete();
-  }
-
-  // Update tracked events counter or delete if counter reached zero or marked for deletion.
-  public static function update() {
-    if (!empty(self::$_event_tracker)) {
-      foreach (self::$_event_tracker as $eid => $event) {
-        if (!$event->counter || $event->incomplete || !empty($event->delete)) {
-          $event->delete();
-        }
-        else {
-          $event->update_counter();
-        }
-        unset(self::$_event_tracker[$eid]);
-      }
-    }
-  }
-  static function reset() {
-    self::$_event_tracker = array();    
   }
 }
