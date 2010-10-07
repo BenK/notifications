@@ -331,13 +331,14 @@ function notifications_tags_autocomplete_validate($element, &$form_state) {
   // them here and process them independently.
   $value = array();
   if ($tags = $element['#value']) {
+    $simple = $element['#autocomplete_path'] == 'notifications_tags/autocomplete/simple';
     // Collect candidate vocabularies.
     $vids = array_keys(notifications_tags_vocabulary_list());
 
     // Translate term names into actual terms.
     $typed_terms = drupal_explode_tags($tags);
     // If a simple autocomplete, check we have just one tag
-    if ($element['#autocomplete_path'] == 'notifications_tags/autocomplete/simple' && count($typed_terms) > 1) {
+    if ($simple && count($typed_terms) > 1) {
       form_set_error(implode('][', $element['#parents']), t('This field admits only a single term'));
       return;
     }
@@ -349,6 +350,9 @@ function notifications_tags_autocomplete_validate($element, &$form_state) {
         $term = array_pop($possibilities);
         $value[] = $term->tid;
       }
+    }
+    if ($simple) {
+      $value = reset($value);
     }
   }
 

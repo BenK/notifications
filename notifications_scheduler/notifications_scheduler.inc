@@ -19,13 +19,12 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
   // Subscriptions counter, this starts with 1 (si the event record is not deleted)
   // And with every process is set to the max sid processed
   public $counter = 1;
-  // Content that needs to be digested in this event.
-  // It can be nodes, comments, etc...
-  protected $content;
-  // Pre-built template, so it can be reused for every sending
-  protected $template;
   // Subscriptions to be processed on every batch, indexed by sid
   protected $subscriptions;
+  // Store action parameters
+  protected $action_object;
+  protected $accion_context;
+  
   /**
    * Trigger this event
    */
@@ -33,15 +32,20 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
     // Load the content now, later it may be different
     if ($this->content = $this->load_content()) {
       // Build message template so it can be reused later
-      if ($this->template = $this->build_template()) {
+      if ($this->get_template()) {
         // Always queue for later processing
-        $this->queue();
-        return TRUE;
+        //$this->queue();
+        //return TRUE;
+        return parent::trigger();
       }
     }
     // If something failed we don't even store this event
     return FALSE;
   }
+  /**
+   * Prepare event objects from context parameters
+   */
+  public abstract function prepare_context();
   /**
    * Load content, to be implemented by subclasses
    */
@@ -52,6 +56,50 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
    */
   public abstract function build_template();
 
+  /**
+   * Action info to return on hook_action_info()
+   */
+  public function get_action_info() {
+    return array(
+      'type' => 'job_scheduler',
+      'label' => $this->get_action_label(),
+      'configurable' => $this->is_configurable(),
+      'behavior' => array('sends_notification'),
+      'triggers' => array('any'),
+    );
+  }
+  /**
+   * Action label, build default with event label
+   */
+  public function get_action_label() {
+    return t('Scheduled notification: @name', array('@name' =>  $this->get_title()));
+  }
+  /**
+   * Whether the action is configurable. Forms handling must be provided by the module
+   */
+  public function is_configurable() {
+    return FALSE;
+  }
+  /**
+   * Set action parameters
+   */
+  public function set_action($object, $context) {
+    $this->action_object = $object;
+    $this->action_context = $context;
+    $this->set_fields();
+    return $this;
+  }
+  /**
+   * Get property from action context
+   */
+  public function get_action_context($name = NULL, $default = NULL) {
+    if ($name) {
+      return isset($this->action_context[$name]) ? $this->action_context[$name] : $default;
+    }
+    else {
+      return $this->action_context;
+    }
+  }
   /**
    * Process event, send pending notifications. Subscriptions start on $counter (min sid)
    * 
@@ -81,20 +129,14 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
       $this->delete();
     }
   }
-  /**
-   * Get subscriptions that match this event criteria
-   * 
-   * This should return an array of Notifications_Qeue_Item's
-   */
-  protected function get_subscriptions() {
-    
-  }
+
   /**
    * Groups subscriptions. This one will just create a group for all
    */
   protected function prepare_subscriptions($subscriptions) {
     return array($subscriptions);
   }
+
   /**
    * Process group, add all to a message and send out
    */
@@ -115,69 +157,27 @@ abstract class Notifications_Scheduler_Event extends Notifications_Event {
     }
     return $result;
   }
-  /**
-   * Build message from the template we have stored
-   * 
-   * @return Messaging_Message object
-   */
-  function build_message() {
-    return $this->template->build_message();
-  }
-  /**
-   * Queue event for later processing
-   */
-  function queue() {
-    // First of all, make sure we have a unique eid
-    $this->record();
-    // Now store in system queue for later processing
-    $this->queued = TRUE;
-    $this->get_queue()->createItem($this);
-  }
 
-  /**
-   * Delete from queue and everywhere else
-   */
-  function delete() {
-    // If coming from a queued item, delete it too
-    if (isset($this->queue_item)) {
-      $this->get_queue()->deleteItem($this->queue_item);
-      unset($this->queue_item);
-    }
-    parent::delete();
-  }
-  /**
-   * Release if process not finished
-   */
-  function release() {
-    if (!isset($this->queue_item)) {
-      $this->get_queue()->releaseItem($this->queue_item);
-      unset($this->queue_item);
-    }    
-  }
-  
-  /**
-   * Build from queued item
-   */
-  public static function build_from_queue($item) {
-    $event = $item->data;
-    $event->queue_item = $item;
-    return $event;
-  }
 
-  /**
-   * Get system queue for operations
-   */
-  function get_queue() {
-    return Drupal_Queue::get($this->queue);
-  }
 }
+
 
 /**
  * Test this schedule class, send latest created nodes
  */
-class Notifications_Scheduler_Latest extends Notifications_Scheduler_Event {
-  public $node_type = 'story';
-  
+class Notifications_Scheduler_Latest_Posts extends Notifications_Scheduler_Event {
+  /**
+   * Set action parameters, get field mapping from context
+   */
+  protected function prepare_context() {
+    if ($type = $this->get_action_context('type')) {
+      $this->add_object('node_type', $type);
+    }
+    // Some hack, try a field with array value ??
+    if ($tid = $this->get_action_context('term')) {
+      $this->add_object('taxonomy_term', $term);
+    }
+  } 
   /**
    * Load latest nodes created. It doesn't check node access
    */
@@ -185,8 +185,15 @@ class Notifications_Scheduler_Latest extends Notifications_Scheduler_Event {
     $select = db_select('node', 'n')
       ->fields('n', array('nid', 'created'))
       ->condition('status', 1)
-      ->orderBy('created', 'DESC')
-      ->limit(variable_get('default_nodes_main', 10))
+      ->orderBy('created', 'DESC');
+      ->limit($this->get_action_context('number', variable_get('default_nodes_main', 10));
+    if ($type = $this->get_action_context('type')) {
+      $select->condition('type', $type);
+    }
+    if ($tid = $this->get_action_context('term')) {
+      $query->join('taxonomy_index', 't', 'n.nid = t.nid');
+      $query->condition('t.tid', $tid);      
+    }
     $nids = $select->execute()->fetchCol();
     return node_load_multiple($nids);
   }
@@ -207,4 +214,51 @@ class Notifications_Scheduler_Latest extends Notifications_Scheduler_Event {
     return $template;
   }
   
+}
+
+/**
+ * Template for a list of nodes, list of lins
+ */
+class Notifications_Scheduler_Node_List extends Notifications_Template {
+
+  /**
+   * Default texts for this template, may need token replacement
+   */
+  function default_text($type, $options) {
+    switch ($type) {
+      case 'subject':
+        return t('Latest posts from [site:name]', array(), $options);
+      case 'content':
+        // @todo There should be a way to format this as an item list
+        $list = array('#type' => 'messaging_text');
+        foreach ($this->event->get_content() as $node) {
+          $list[$node->nid] = array(
+            '#type' => 'link',
+            '#title' => $node->title,
+            '#href' => 'node/' . $node->nid,
+            '#options' => array('absolute' => TRUE),
+          );
+        }
+        return $list;
+      default:
+        return parent::default_text($type, $options);
+    }
+  }  
+}
+
+/**
+ * Template for a list of nodes, teasers
+ */
+class Notifications_Scheduler_Node_Teasers extends Notifications_Scheduler_Node_List {
+   /**
+   * Default texts for this template, may need token replacement
+   */
+  function default_text($type, $options) {
+    switch ($type) {
+      case 'content':
+        return node_view_multiple($this->event->get_content());
+      default:
+        return parent::default_text($type, $options);
+    }
+  } 
 }

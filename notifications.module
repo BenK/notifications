@@ -661,7 +661,7 @@ function notifications_user_setting($name, $account = NULL, $default = NULL) {
  * Create event object of given type
  * 
  * Usage:
- *   notifications_event('node-insert', array('node' => $node))->trigger();
+ *   notifications_event('node', 'insert');
  *   
  * @param $type
  *   Array with event parameters
@@ -669,7 +669,7 @@ function notifications_user_setting($name, $account = NULL, $default = NULL) {
  *   Array of event objects (type => $object)
  */
 function notifications_event($type, $action) {
-  $event =  Notifications_Event::build_type($type, $action);
+  $event = Notifications_Event::build_type($type, $action);
   $event->queue = variable_get('notifications_event_queue', 0);
   return $event;
 }

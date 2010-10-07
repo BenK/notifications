@@ -848,7 +848,7 @@ class Notifications_Subscription_Type extends Notifications_Subscription {
    * s.type = 'node' AND (field_condition1 OR field_condition2)
    * s.type = 'term' AND (field_condition1)
    */
-  function get_event_conditions($event, $add) {
+  function event_conditions($event, $add) {
     foreach ($event->get_objects() as $object) {
       $condition = $this->get_object_conditions($object, db_or());
       if ($condition && $condition->count()) {

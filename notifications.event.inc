@@ -34,6 +34,8 @@ class Notifications_Event extends Notifications_Entity {
   public $counter = 0;
   // Objects for this event
   public $objects = array();
+  // Generic content for this event. It can be nodes, comments, etc...
+  protected $content;
   // Processing options, event to be queued
   public $queue = TRUE;
   // Processing options, notifications to be sent immediately
@@ -42,9 +44,9 @@ class Notifications_Event extends Notifications_Entity {
   public $queued = FALSE;
   // Will be set if any of the objects cannot be loaded
   public $incomplete = FALSE;
-  // Event text for composition
+  // Event text for composition. This can override the event's default texts.
   public $text;
-  // Template to use for this event
+  // Pre-built template to use for this event
   protected $template;
   // Temporary cache, user access to event
   protected $_access;
@@ -96,6 +98,12 @@ class Notifications_Event extends Notifications_Entity {
    */
   public function get_name() {
     return t('Event');
+  }
+  /**
+   * Get generic content
+   */
+  public function get_content() {
+    return isset($this->content) ? $this->content : NULL;
   }
   /**
    * Get subscription type information
