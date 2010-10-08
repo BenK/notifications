@@ -48,8 +48,6 @@ class Notifications_Event extends Notifications_Entity {
   public $text;
   // Pre-built template to use for this event
   protected $template;
-  // Temporary cache, user access to event
-  protected $_access;
 
   /**
    * Constructor
@@ -462,21 +460,19 @@ class Notifications_Event extends Notifications_Entity {
     $sent = $results = array();
     foreach ($subscriptions as $subscription) {
       $user = $subscription->get_user();
-      if (in_array($user->uid, $sent)) continue;
-      if ($this->user_access($user)) {
-        $template->add_object('user', $user);     
-        $message = $template->build_message()
-          ->set_method($subscription->send_method);
-        $message->set_user($user);
-        $results[] = $result = $message->send();
-        if ($result) {
-          $sent[] = $user->uid;
+      if (!$user->uid || !isset($sent[$subscription->send_method][$user->uid])) {
+        $result = FALSE;
+        if ($this->user_access($user)) {
+          $template->add_object('user', $user);     
+          $result = $template
+            ->build_message()
+            ->set_method($subscription->send_method)
+            ->set_user($user)
+            ->send();
         }
-      }
-      else {
-        // User doesn't have access, mark as sent so we don't try again
-        $sent[] = $user->uid;
-        $results[] = FALSE;
+        // If user doesn't have access, mark as sent so we don't try again
+        $results[] = $sent[$subscription->send_method][$user->uid] = $result;
+        
       }
     }
     $count = count($results);

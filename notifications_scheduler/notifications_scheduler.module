@@ -55,7 +55,7 @@ function notifications_scheduler_notifications($op) {
 function notifications_scheduler_action_info() {
   $actions = array();
   foreach (notifications_info('event types') as $key => $info) {
-    if (isset($info['trigger']) && $info['trigger'] == 'job_scheduler' && !empty($info['actions'])) {
+    if (isset($info['triggers']['job_scheduler']) && !empty($info['actions'])) {
       // Does it make sense for these events to have more than one action?
       foreach ($info['actions'] as $action_name) {
         $actions[$action_name] = notifications_event($info['type'], $info['action'])->get_action_info();

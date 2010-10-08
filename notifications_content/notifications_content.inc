@@ -179,6 +179,8 @@ class Notifications_Node_Event_Template extends Notifications_Template {
         return t('Update for [node:type-name]: [node:title]', array(), $options);
       case 'content':
         return array(
+          '#type' => 'messaging_text',
+          'header' => t('Update for [node:type-name]: [node:title]', array(), $options),
           'teaser' => '[node:summary]',
           'more' => t('Read more [node:url]', array(), $options),
         );
