@@ -6,40 +6,65 @@
  */
 
 /**
+ * Generic content subscription Thread subscription
+ */
+class Notifications_Content_Subscription extends Notifications_Subscription_Simple {  
+  /**
+   * Set all the fields we can from node
+   */
+  public function set_node($node) {
+    $node_mapping = array(
+      'node:nid' => $node->nid,
+      'node:type' => $node->type,
+      'node:uid' => $node->uid,
+    );
+    foreach ($node_mapping as $index => $value) {
+      if ($field = $this->get_field($index)) {
+        $field->set_value($value);
+      }
+    }
+    return $this;
+  }
+  /**
+   * Get name
+   */
+  function get_name() {
+    if (isset($this->name)) {
+      return $this->name;
+    }
+    else {
+      $type_name = ($type = $this->get_field('node:type')) ? $type->get_name() : t('Content');
+      if ($author = $this->get_field('node:uid')) {
+        return t('@type posts by @author', array('@type' => $type_name, '@author' => $author->get_name()));
+      }
+      else {
+        return t('@type posts', array('@type' => $type_name));
+      }
+    }
+  }  
+}
+
+/**
  * Thread subscription
  */
-class Notifications_Node_Subscription extends Notifications_Subscription {
-  public $field_types = array('node:nid');
-  public $field_values = array(NULL);
-  public $object_types = array('node');
-}
+class Notifications_Node_Subscription extends Notifications_Content_Subscription {
+  /**
+   * Get a proper name for this type
+   */
+  function get_name() {
+    if (isset($this->name)) {
+      return $this->name;
+    }
+    elseif ($node = $this->get_field('node:nid')->drupal_object()) {
+      // If we've got the node, return node type and title
+      return t('@node-type: @node-title', array('@node-type' => node_type_get_name($node), '@node-title' => $node->title));
+    }
+    else {
+      return parent::get_name();
+    }
+  }
 
-/**
- * Node type subscription
- */
-class Notifications_Node_Type_Subscription extends Notifications_Subscription {
-  public $field_types = array('node:type');
-  public $field_values = array(NULL);
-  public $object_types = array('node', 'node_type');
 }
-
-/**
- * Author subscription
- */
-class Notifications_Author_Subscription extends Notifications_Subscription {
-  public $field_types = array('node:uid');
-  public $field_values = array(NULL);
-  public $object_types = array('node', 'user');
-}
-/**
- * Node type and author subscription
- */
-class Notifications_Node_Type_Author_Subscription extends Notifications_Subscription {
-  public $field_types = array('node:type', 'node:uid');
-  public $field_values = array(NULL, NULL);
-  public $object_types = array('node', 'node_type', 'user');
-}
-
 /**
  * Node events
  */

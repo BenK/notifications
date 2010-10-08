@@ -44,6 +44,8 @@ abstract class Notifications_Subscription extends Notifications_Entity {
   public $language;
   // Event that triggers this subscription
   public $event_type;
+  // Instance fields, depend on subscription type
+  public $fields;
   // Number of conditions that must be met
   public $conditions = 0;
   // Values to pass on to the queue for composition
@@ -58,9 +60,6 @@ abstract class Notifications_Subscription extends Notifications_Entity {
   // Timepstamps
   public $created;
   public $updated;
-  // Temporary variables, not saved to the DB
-  protected $format;
-  protected $objects;
   // Name for this subscription that will be quite dependent on context
   public $name;
   // Mark if incomplete loading of objects
@@ -70,11 +69,11 @@ abstract class Notifications_Subscription extends Notifications_Entity {
   // Temporary error message, to display when validation fails
   public $error_message;
   // Subscription type. Array of field types
-  public $field_types = array();
+  public $field_types;
   // Subscription type. Array of field values
-  public $field_values = array();
+  public $field_values;
   // Subscription type. Array of object types
-  public $object_types = array();  
+  public $object_types;  
 
   /**
    * Build from db object or template.
@@ -449,7 +448,7 @@ abstract class Notifications_Subscription extends Notifications_Entity {
     $form['subscription_info'] = $this->element_info();
     $form['send_method'] = $this->element_send_method();
     $form['send_interval'] = $this->element_send_interval();
-    if ($fields = $this->get_editable_fields()) {
+    if ($fields = $this->get_fields(TRUE)) {
       $form['subscription_fields'] = $this->element_fields_info($fields);
     }
     return $form;
@@ -779,28 +778,63 @@ abstract class Notifications_Subscription extends Notifications_Entity {
   }
 
   /**
-   * Check whether this is a subscription instance
+   * Check whether this is a subscription instance.
+   * 
+   * Regular subscription types will be the same as the instance. For more ellaborated subscription
+   * types, we can get multiple different instances depending on field values.
    */
   public function is_instance() {
     return TRUE;
   }
+
   /**
    * Check whether this is a stored instance
    */
   public function is_stored() {
     return !empty($this->sid);
   }
-  /*
-   * Get instance, will be the same object
+
+  /**
+   * Get subscription instance.
+   * 
+   * This will be the same object for regular subscriptions. More complex subscriptins can be able
+   * to produce multiple types depending on parameters.
    */
   public function instance() {
     return $this;
   }
 
   /**
-   * User access function
+   * Check user access to this subscription
    */
   public function user_access($account, $op = 'view') {
+    // If this has a user, only same user or administrators have access
+    if (!empty($this->uid) && $account->uid != $this->uid && !user_access('administer notifications', $account) && !user_access('administer subscriptions', $account)) {
+      return FALSE;
+    }
+    elseif ($op == 'view') {
+      return TRUE;
+    }
+    else if ($op == 'subscribe') {
+      // To create a new subscription user needs to have access to all the objects
+      return $this->type_access($account) && $this->object_access($account);
+    }
+  }
+  /**
+   * Check access to all the subscription objects
+   */
+  public function object_access($account) {
+    foreach ($this->get_objects(TRUE) as $object) {
+      if (!$object->user_access($account)) {
+        return FALSE;
+      }
+    }
+    return TRUE;
+  }
+  /**
+   * User access function
+   */
+  public function type_access($account) {
     $access = $this->get_info('access');
     // Access may be true/false or an array of permissions
     if ($access && is_array($access)) {
@@ -1080,8 +1114,8 @@ abstract class Notifications_Subscription extends Notifications_Entity {
    * Get a field for a given position
    */
   function get_field($position) {
-    $this->set_fields();
-    return isset($this->fields[$position]) ? $this->fields[$position] : NULL;
+    $fields = $this->get_fields();
+    return isset($fields[$position]) ? $fields[$position] : NULL;
   }
   /**
    * Get fields as array of field objects
@@ -1237,41 +1271,14 @@ abstract class Notifications_Subscription extends Notifications_Entity {
   }
 
   /**
-   * Load subscription objects, from fields
+   * Get objects associated to this subscription's fields
    */
-  function load_objects() {
-    if (!isset($this->objects)) {
-      $this->objects = array();
-      foreach ($this->get_fields() as $field) {
-        if ($type = notifications_field_type($field->field, 'object_type')) {
-          if ($object = notifications_object_load($type, $field->value)) {
-            if (!isset($this->objects[$type])) {
-              $this->objects[$type] = $object;
-            }
-            elseif (is_array($this->objects[$type])) {
-              // Was an array, just add
-              $this->objects[$type][] = $object;
-            }
-            else {
-              // Was single element, make into an array with this new object
-              $this->objects[$type] = array($this->objects[$type], $object);
-            }
-          }
-          else {
-            // Object cannot be loaded, mark as incomplete
-            $this->incomplete = TRUE;
-          }
-        }
-      } 
+  function get_objects($filter = NULL) {
+    $objects();
+    foreach ($this->get_fields($filter) as $index => $field) {
+      $objects[$index] = $field->get_object();
     }
-    return empty($this->incomplete);
-  }
-  /**
-   * Get objects
-   */
-  function get_objects() {
-    $this->load_objects();
-    return $this->objects;
+    return $objects;
   }
 
   /**
@@ -1466,27 +1473,52 @@ abstract class Notifications_Subscription extends Notifications_Entity {
   }
   /**
    * Get field values  for this subscription type. The order is important as it will determine the field index
+   * 
+   * For empty values, well fill with NULL until the number of fields
    */
   function field_values() {
-    return isset($this->field_values) ? $this->field_values : $this->get_info('field_values', array());
+    $values = isset($this->field_values) ? $this->field_values : $this->get_info('field_values', array());
+    $values = array_pad($values, count($this->field_types()), NULL);
+    return $values;
   }
   /**
    * Get object types
    */
   function object_types() {
-    return array();
+    return isset($this->object_types) ? $this->object_types : $this->get_info('object_types', array());
   }
   /**
    * Get subscription type fields as array of field objects
    */
   function type_fields($filter = NULL) {
     $fields = array();
-    $field_types = $this->field_types();
-    $field_values = $this->field_values();
-    foreach ($field_types as $index => $type) {
-      $value = isset($field_values[$index]) ? $field_values[$index] : NULL;
-      $fields[$index] = Notifications_Field::build_type($type, array('value' => $value, 'position' => $index));
+    $values = $this->field_values();
+    foreach ($this->field_types() as $index => $type) {
+      $fields[$index] = Notifications_Field::build_type($type, array('value' => $values[$index], 'position' => $index));
     }
     return $this->filter_fields($fields, $filter);
   }
+}
+
+/**
+ * Simple subscription.
+ * 
+ * This is the base class for subscriptions that:
+ * - Have a fixed number of fields defined by the subscription type
+ * - Have only a field of each type
+ */
+class Notifications_Subscription_Simple extends Notifications_Subscription {
+  /**
+   * In this case we can get fields by type or by position
+   */
+  function get_field($index) {
+    if (is_numeric($index)) {
+      return parent::get_field($index);
+    }
+    else {
+      $mapping = array_flip($this->field_types());
+      return isset($mapping[$index]) ? parent::get_field($mapping[$index]) : NULL;
+    }
+  }
+  
 }

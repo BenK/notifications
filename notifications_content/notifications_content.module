@@ -236,25 +236,33 @@ function notifications_content_notifications($op) {
       $types['content_thread'] = array(
         'title' => t('Thread'),
         'class' => 'Notifications_Node_Subscription',
+        'field_types' => array('node:nid'),
+        'object_types' => array('node'),
         'access' => array('subscribe to content'),
         'description' => t('Subscribe to all changes and comments for a thread.'),
       );
       $types['content_type'] = array(
         'title' => t('Content type'),
-        'class' => 'Notifications_Node_Type_Subscription',
+        'class' => 'Notifications_Content_Subscription',
+        'field_types' => array('node:type'),
+        'object_types' => array('node', 'node_type'),
         'access' => array('subscribe to content type'),
         'description' => t('Subscribe to all content of a given type.'),
       );
       $types['content_author'] = array(
         'title' => t('Author'),
-        'class' => 'Notifications_Author_Subscription',
+        'class' => 'Notifications_Content_Subscription',
+        'field_types' => array('node:uid'),
+        'object_types' => array('node', 'user'),
         'access' => array('subscribe to author'),
         'description' => t('Subscribe to all content submitted by a user.'),
       );
       // This is a complex type, combining two fields
       $types['content_type_author'] = array(
         'title' => t('Content type by author'),
-        'class' => 'Notifications_Node_Type_Author_Subscription',
+        'class' => 'Notifications_Content_Subscription',
+        'field_types' => array('node:type', 'node:uid'),
+        'object_types' => array('node', 'node_type', 'user'),
         'access' => array('subscribe to content', 'subscribe to author'),
         'description' => t('Subscribe to all content of a given type submitted by a user.'),
       );
@@ -483,9 +491,9 @@ function notifications_content_notifications_object_node($op, $node, $account = 
       $options = array();
       // Thread
       if (notifications_content_type_enabled($node->type, 'content_thread')) {
-        $options[] = Notifications_Subscription::build_instance('content_thread')
-          ->set_name(t('This post')) // @todo this name should be in page objects
-          ->add_field('node:nid', $node->nid);
+        $options[] = notifications_subscription('content_thread')
+          ->set_node($node)
+          ->set_name(t('This post')); // @todo this name should be in page objects
       }
       // Content type subscriptions
       if (notifications_content_type_enabled($node->type, 'content_type')) { 
@@ -502,10 +510,9 @@ function notifications_content_notifications_object_node($op, $node, $account = 
         }
         // Subscribe to content type by author
         if (notifications_content_type_enabled($node->type, 'content_type_author')) {
-          $options[] = Notifications_Subscription::build_instance('content_type_author')
-            ->set_name(t('@type posts by @name', array('@name' => $author->name, '@type' => node_type_get_name($node)))) // @todo this name should be in page objects
-            ->add_field('node:uid', $node->uid)
-            ->add_field('node:type', $node->type);  
+          $options[] = notifications_subscription('content_type_author')
+            ->set_node($node)
+            ->set_name(t('@type posts by @name', array('@name' => $author->name, '@type' => node_type_get_name($node))));
         }
       }
       return $options;
