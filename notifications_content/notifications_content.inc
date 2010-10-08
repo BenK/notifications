@@ -8,7 +8,7 @@
 /**
  * Thread subscription
  */
-class Notifications_Node_Subscription extends Notifications_Subscription_Type {
+class Notifications_Node_Subscription extends Notifications_Subscription {
   public $field_types = array('node:nid');
   public $field_values = array(NULL);
   public $object_types = array('node');
@@ -17,7 +17,7 @@ class Notifications_Node_Subscription extends Notifications_Subscription_Type {
 /**
  * Node type subscription
  */
-class Notifications_Node_Type_Subscription extends Notifications_Subscription_Type {
+class Notifications_Node_Type_Subscription extends Notifications_Subscription {
   public $field_types = array('node:type');
   public $field_values = array(NULL);
   public $object_types = array('node', 'node_type');
@@ -26,7 +26,7 @@ class Notifications_Node_Type_Subscription extends Notifications_Subscription_Ty
 /**
  * Author subscription
  */
-class Notifications_Author_Subscription extends Notifications_Subscription_Type {
+class Notifications_Author_Subscription extends Notifications_Subscription {
   public $field_types = array('node:uid');
   public $field_values = array(NULL);
   public $object_types = array('node', 'user');
@@ -34,7 +34,7 @@ class Notifications_Author_Subscription extends Notifications_Subscription_Type 
 /**
  * Node type and author subscription
  */
-class Notifications_Node_Type_Author_Subscription extends Notifications_Subscription_Type {
+class Notifications_Node_Type_Author_Subscription extends Notifications_Subscription {
   public $field_types = array('node:type', 'node:uid');
   public $field_values = array(NULL, NULL);
   public $object_types = array('node', 'node_type', 'user');

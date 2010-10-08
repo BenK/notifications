@@ -344,7 +344,7 @@ function notifications_access_anonymous() {
  * Menu loading, subscription
  */
 function notifications_subscription_load($sid) {
-  return Notifications_Subscription_Instance::load($sid);
+  return Notifications_Subscription::load($sid);
 }
 
 /**
@@ -373,7 +373,7 @@ function notifications_entity_info() {
   $info['notifications_subscription'] = array(
     'label' => t('Subscription'),
     'controller class' => 'MessagingEntityController',
-    'base class' => 'Notifications_Subscription_Instance',
+    'base class' => 'Notifications_Subscription',
     'base table' => 'notifications_subscription',
     'uri callback' => 'notifications_subscription_uri',
     'entity keys' => array(
@@ -506,14 +506,14 @@ function notifications_subscription_user_types($account = NULL) {
 }
 
 /**
- * Build subscription type object
+ * Build subscription type object. We keep an object for each type so we can quickly clone it
  */
 function notifications_subscription($type) {
   $subscription_types = &drupal_static(__FUNCTION__);
   if (!isset($subscription_types[$type])) {
     $subscription_types[$type] = Notifications_Subscription::build_type($type);
   }
-  return $subscription_types[$type];
+  return clone $subscription_types[$type];
 }
 
 /**

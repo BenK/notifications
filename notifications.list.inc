@@ -88,6 +88,9 @@ class Notifications_Subscription_List implements Iterator {
     $list = array();
     foreach ($this->subscriptions as $index => $subscription) {
       if ($subscription->is_instance()) {
+        $list[$index] = $subscription;
+      }
+      else {
         $list[$index] = $subscription->instance();
       }
     }
@@ -118,9 +121,6 @@ class Notifications_Subscription_List implements Iterator {
     foreach ($this->subscriptions as $index => $subscription) {
       if ($instance = $subscription->get_instance($params)) {
         $this->subscriptions[$index] = $instance;
-      }
-      else {
-        $this->subscription[$index] = $subscription->instance();
       }
     }
   }

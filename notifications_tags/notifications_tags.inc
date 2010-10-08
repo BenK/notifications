@@ -4,7 +4,7 @@
  * @file
  * Drupal Notifications Framework - Default class file
  */
-class Notifications_Taxonomy_Term_Subscription extends Notifications_Subscription_Type {
+class Notifications_Taxonomy_Term_Subscription extends Notifications_Subscription {
   public $field_types = array('term:tid');
   public $field_values = array(NULL);
 
