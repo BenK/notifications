@@ -99,7 +99,7 @@ abstract class Notifications_Field {
    * Get link if this field is linked to an object
    */
   function get_link($options = array()) {
-    if ($path = $this->get_path() && $name = $this->get_name()) {
+    if (($path = $this->get_path()) && ($name = $this->get_name())) {
       return l($name, $path, $options);
     }
     else {

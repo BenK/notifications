@@ -66,6 +66,7 @@ function notifications_tags_notifications($op) {
         'title' => t('Tags'),
         'description' => t('Subscribe to content tagged with a given taxonomy term.'),
         'class' => 'Notifications_Taxonomy_Term_Subscription',
+        'field_types' => array('term:tid'),
         'access' => array('subscribe to taxonomy terms'),
       );
       return $types;
@@ -156,8 +157,7 @@ function notifications_tags_notifications_object_taxonomy_term($op, $term, $acco
       // Get all available subscriptions to current node
       $options = array();
       if (notifications_tags_vocabulary_enabled($term->vid) && (!$account || user_access('subscribe to taxonomy terms', $account))) {
-        $options[] = Notifications_Subscription::build_instance('taxonomy_term')
-          ->set_name(t('Posts tagged with %name', array('%name' => $term->name))) // @todo this name should be in page objects
+        $options[] = notifications_subscription('taxonomy_term')
           ->add_field('term:tid', $term->tid);
       }
       return $options;

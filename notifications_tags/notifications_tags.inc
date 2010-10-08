@@ -4,14 +4,21 @@
  * @file
  * Drupal Notifications Framework - Default class file
  */
-class Notifications_Taxonomy_Term_Subscription extends Notifications_Subscription {
-  public $field_types = array('term:tid');
-  public $field_values = array(NULL);
-
-  public function get_title() {
-    return t('Tag');
+class Notifications_Taxonomy_Term_Subscription extends Notifications_Subscription_Simple {
+  /**
+   * Get proper name
+   */
+  public function get_name() {
+    if (isset($this->name)) {
+      return $this->name;
+    }
+    elseif ($term = $this->get_field('term:tid')->drupal_object()) {
+      return t('Content tagged with @term', array('@term' => $term->name));
+    }
+    else {
+      parent::get_name();
+    }
   }
-
 }
 
 /**
@@ -63,6 +70,12 @@ class Notifications_Taxonomy_Term_Field extends Notifications_Field_Autocomplete
    */
   function get_description() {
     return t('Taxonomy term');
+  }
+  /**
+   * Get system path
+   */
+  function get_path() {
+    return isset($this->value) ? 'taxonomy/term/' . $this->value : ''; 
   }
    /**
    * Get autocomplete path
