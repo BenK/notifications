@@ -237,11 +237,17 @@ function notifications_tags_vocabulary_list($field = NULL) {
 }
 
 /**
- * Check whether subscriptions are allowed to this vocabulary
+ * Check whether subscriptions are allowed to this vocabulary or get list of enabled vids
  */
-function notifications_tags_vocabulary_enabled($vid) {
-  $vid = is_object($vid) ? $vid->vid : $vid;
-  return in_array($vid, variable_get('notifications_tags_vocabularies', array()));
+function notifications_tags_vocabulary_enabled($vid = NULL) {
+  $enabled_vids = variable_get('notifications_tags_vocabularies', array());
+  if (isset($vid)) {
+    $vid = is_object($vid) ? $vid->vid : $vid;
+    return in_array($vid, $enabled_vids);
+  }
+  else {
+    return $enabled_vids;
+  }
 }
 
 /**
@@ -285,9 +291,8 @@ function notifications_tags_autocomplete($type, $tags_typed = '') {
   $tags_typed = drupal_explode_tags($tags_typed);
   $tag_last = drupal_strtolower(array_pop($tags_typed));
 
-  $matches = array();
-  if ($tag_last != '') {
-    $vids = array_keys(notifications_tags_vocabulary_list());
+  $term_matches = array();
+  if ($tag_last != '' && $vids = notifications_tags_vocabulary_enabled()) {
     $query = db_select('taxonomy_term_data', 't');
     $query->addTag('translatable');
     $query->addTag('term_access');
@@ -332,9 +337,6 @@ function notifications_tags_autocomplete_validate($element, &$form_state) {
   $value = array();
   if ($tags = $element['#value']) {
     $simple = $element['#autocomplete_path'] == 'notifications_tags/autocomplete/simple';
-    // Collect candidate vocabularies.
-    $vids = array_keys(notifications_tags_vocabulary_list());
-
     // Translate term names into actual terms.
     $typed_terms = drupal_explode_tags($tags);
     // If a simple autocomplete, check we have just one tag
@@ -342,7 +344,12 @@ function notifications_tags_autocomplete_validate($element, &$form_state) {
       form_set_error(implode('][', $element['#parents']), t('This field admits only a single term'));
       return;
     }
-
+    // Collect candidate vocabularies.
+    $vids = notifications_tags_vocabulary_enabled();
+    if (!$vids) {
+      form_set_error(implode('][', $element['#parents']), t('You must have at least one vocabulary enabled for tag subscriptions.'));
+      return;      
+    }
     foreach ($typed_terms as $typed_term) {
       // See if the term exists in the chosen vocabulary and return the tid;
       // otherwise, create a new 'autocreate' term for insert/update.

@@ -38,11 +38,11 @@ function notifications_scheduler_notifications($op) {
       return $types;
     case 'message templates':
       $types['notifications_scheduler-node_list'] = array(
-        'title' => t('Node list'),
+        'title' => t('Node list titles'),
         'class' => 'Notifications_Scheduler_Node_List',
       );
       $types['notifications_scheduler-node_teasers'] = array(
-        'title' => t('Node teasers'),
+        'title' => t('Node list teasers'),
         'class' => 'Notifications_Scheduler_Node_Teasers',
       );
       return $types;
@@ -76,19 +76,23 @@ function notifications_scheduler_latest_posts_action_form($context) {
     '#default_value' => isset($context['node_type']) ? $context['node_type'] : '',
   );
   // Terms is an array of tids, map to names for autocomplete field
-  if (!empty($context['taxonomy_term'])) {
-    $terms = taxonomy_term_title(taxonomy_term_load($context['taxonoy_term']));
+  if (!empty($context['taxonomy_term']) && $term = taxonomy_term_load($context['taxonomy_term'])) {
+    $terms = taxonomy_term_title($term);
   }
   else {
     $terms = '';
   }
-  $form['taxonomy_term'] = array(
-    '#title' => t('Taxonomy term'),
-    '#type' => 'textfield',
-    '#default_value' => $terms,
-    '#autocomplete_path' => 'notifications_tags/autocomplete/simple',
-    '#element_validate' => array('notifications_tags_autocomplete_validate'),
-  );
+  // If we have the tags module enabled, allow tag condition too
+  if (module_exists('notifications_tags')) {
+    $form['taxonomy_term'] = array(
+      '#title' => t('Taxonomy term'),
+      '#type' => 'textfield',
+      '#default_value' => $terms,
+      '#autocomplete_path' => 'notifications_tags/autocomplete/simple',
+      '#element_validate' => array('notifications_tags_autocomplete_validate'),
+      '#disabled' => !(bool)notifications_tags_vocabulary_enabled(),
+    );
+  }
   $form['node_number'] = array(
     '#title' => t('Number of items to send'),
     '#type' => 'select',
@@ -106,9 +110,11 @@ function notifications_scheduler_latest_posts_action_submit($form, &$form_state)
   // we return will be serialized to the database.
   $params = array(
     'node_type' => $form_state['values']['node_type'],
-    'taxonomy_term'   => $form_state['values']['taxonomy_term'],
     'node_number'   => $form_state['values']['node_number'],
   );
+  if (isset($form_state['values']['taxonomy_term'])) {
+    $params['taxonomy_term'] = $form_state['values']['taxonomy_term'];
+  }
   return $params;
 }
 
